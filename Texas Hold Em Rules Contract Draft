@@ -1,0 +1,90 @@
+pragma solidity ^0.8.0;
+
+contract TexasHoldem {
+    // Struct to represent a player in the game
+    struct Player {
+        uint256 bet;
+        address payable addr;
+        bool isFolded;
+        uint8 handStrength;
+        uint8[2] hand;
+    }
+
+    // Struct to represent the game state
+    struct Game {
+        uint8 round;
+        uint8 currentPlayer;
+        uint256 pot;
+        uint256 betSize;
+        uint8[5] board;
+        Player[] players;
+        bool isAgainstComputer;
+        address[6] opponents;
+    }
+
+    // Enum to represent the different rounds of the game
+    enum Round { Preflop, Flop, Turn, River }
+
+    // The current game state
+    Game public game;
+
+    // Mapping from player addresses to their index in the "players" array
+    mapping(address => uint8) public playerIndex;
+
+    // The minimum bet size
+    uint256 public minBet;
+
+    // The maximum number of players
+    uint8 public maxPlayers;
+
+    // The blind rate type (fixed or dynamic)
+    bool public isFixedBlinds;
+
+    // The blind amounts (used if fixed blinds are enabled)
+    uint256 public smallBlind;
+    uint256 public bigBlind;
+
+    // The blind rate (used if dynamic blinds are enabled)
+    uint256 public blindRate;
+
+    // The address of the contract owner
+    address public owner;
+
+    // Events to allow clients to listen for updates to the game state
+    event NewRound(Round round);
+    event NewBet(uint256 betSize);
+    event NewBoardCard(uint8 card);
+    event PlayerFolded(address player);
+    event PlayerCalled(address player);
+    event PlayerRaised(address player, uint256 raiseAmount);
+    event PlayerAllIn(address player, uint256 allInAmount);
+    event HandComplete(uint8[2] hand);
+    event GameOver();
+
+    // Constructor to initialize the contract
+    constructor() public {
+        owner = msg.sender;
+        minBet = 1 ether;
+        maxPlayers = 6;
+        isFixedBlinds = true;
+        smallBlind = 1 ether / 2;
+        bigBlind = 1 ether;
+        blindRate = 1;
+    }
+
+    // Function to allow players to join the game
+    function joinGame() public payable {
+        // Check that the game is not full
+        require(game.players.length < maxPlayers, "Game is full");
+
+        // Determine the player's position at the table
+        uint8 index = game.players.length;
+        uint8 position = (index + 1) % (maxPlayers + 1);
+
+        // Calculate the appropriate blind based on the player's position and the current blind rate
+        uint256 blind;
+        if (isFixedBlinds) {
+            // Fixed blinds
+            if (position == 0) {
+                // Small blind
+                blind = smallBlind;
